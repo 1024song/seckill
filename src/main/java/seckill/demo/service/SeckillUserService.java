@@ -1,6 +1,7 @@
 package seckill.demo.service;
 
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,18 @@ public class SeckillUserService {
 
     public SeckillUser getById(Long id){
         return seckillUserDao.getById(id);
+    }
+
+    public SeckillUser getByToken(HttpServletResponse response,String token){
+        if(StringUtils.isEmpty(token)){
+            return null;
+        }
+        SeckillUser user = redisService.get(SeckillUserKeyPrefix.token,token,SeckillUser.class);
+        //延长有限期
+        if(user != null){
+            addCookie(response, token, user);
+        }
+        return user;
     }
 
     /**
@@ -67,17 +80,21 @@ public class SeckillUserService {
         // 执行到这里表明登录成功了
         // 生成cookie
         String token = UUIDUtil.uuid();
+        addCookie(response,token,seckillUser);
+
+        return Result.success(true);
+    }
+
+    private void addCookie(HttpServletResponse response, String token, SeckillUser user) {
         // 每次访问都会生成一个新的session存储于redis和反馈给客户端，
         // 一个session对应存储一个seckillUser对象
-        redisService.set(SeckillUserKeyPrefix.token,token,seckillUser);
+        redisService.set(SeckillUserKeyPrefix.token, token, user);
         // 将token写入cookie中, 然后传给客户端（一个cookie对应一个用户，
         // 这里将这个cookie的用户信息写入redis中）
-        Cookie cookie = new Cookie(COOKIE_NAME_TOKEN,token);
+        Cookie cookie = new Cookie(COOKIE_NAME_TOKEN, token);
         // 保持与redis中的session一致
         cookie.setMaxAge(SeckillUserKeyPrefix.token.expireSeconds());
         cookie.setPath("/");
         response.addCookie(cookie);
-
-        return Result.success(true);
     }
 }

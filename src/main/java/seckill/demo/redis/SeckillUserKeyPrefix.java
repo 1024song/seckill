@@ -13,8 +13,10 @@ public class SeckillUserKeyPrefix extends BaseKeyPrefix {
         super(expireSeconds, prefix);
     }
 
-    public static SeckillUserKeyPrefix token = new SeckillUserKeyPrefix(TOKEN_EXPIRE, "token");
+    public static SeckillUserKeyPrefix token =
+            new SeckillUserKeyPrefix(TOKEN_EXPIRE, "token");
     // 用于存储用户对象到redis的key前缀
-    public static SeckillUserKeyPrefix getSeckillUserById = new SeckillUserKeyPrefix(0, "id");
+    public static SeckillUserKeyPrefix getSeckillUserById =
+            new SeckillUserKeyPrefix(0, "id");
 
 }
