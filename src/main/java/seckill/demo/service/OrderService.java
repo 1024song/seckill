@@ -63,5 +63,4 @@ public class OrderService {
         orderDao.insertSeckillOrder(seckillOrder);
         return orderInfo;
     }
-
 }

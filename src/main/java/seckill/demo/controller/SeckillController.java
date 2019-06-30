@@ -6,6 +6,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import seckill.demo.domain.OrderInfo;
+import seckill.demo.domain.SeckillOrder;
 import seckill.demo.domain.SeckillUser;
 import seckill.demo.result.CodeMsg;
 import seckill.demo.service.GoodsService;
@@ -58,6 +60,17 @@ public class SeckillController {
         }
         // 2.2 判断用户是否已经完成秒杀，如果没有秒杀成功，继续执行
 
-        return "";
+        SeckillOrder order = orderService.getSeckillOrderByUserIdAndGoodsId(user.getId(),goodsId);
+        if(order != null){
+            model.addAttribute("errmsg", CodeMsg.REPEATE_SECKILL.getMsg());
+            return "miaosha_fail";
+        }
+
+        // 2.3 完成秒杀操作：减库存，下订单，写入秒杀订单
+
+        OrderInfo orderInfo = seckillService.seckill(user,goodsVo);
+        model.addAttribute("orderInfo",orderInfo);
+        model.addAttribute("goods",goodsVo);
+        return "order_detail";
     }
 }

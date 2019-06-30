@@ -32,8 +32,8 @@ public class SeckillService {
     public OrderInfo seckill(SeckillUser user, GoodsVo goods){
         // 1. 减库存
         boolean success = goodsService.reduceStock(goods);
-        // 2. 生成订单；向order_info表和maiosha_order表中写入订单信息
 
+        // 2. 生成订单；向order_info表和maiosha_order表中写入订单信息
         return orderService.createOrder(user,goods);
 
     }
