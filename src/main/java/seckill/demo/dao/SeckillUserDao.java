@@ -19,13 +19,13 @@ public interface SeckillUserDao {
      * @param id
      * @return
      */
-    @Select("select * from user where id = #{id}")
+    @Select("select * from seckill_user where id = #{id}")
     SeckillUser getById(@Param("id") Long id);
 
     /**
      *
      * @param updatedUser
      */
-    @Update("UPDATE user SET password=#{password} WHERE id=#{id}")
+    @Update("UPDATE seckill_user SET password=#{password} WHERE id=#{id}")
     void updatePassword(SeckillUser updatedUser);
 }

@@ -55,4 +55,13 @@ public class LoginController {
         return Result.success(true);
     }
 
+
+    @RequestMapping("/create_token")
+    @ResponseBody
+    public Result<String> createToken(HttpServletResponse response, @Valid LoginVo loginVo) {
+        log.info(loginVo.toString());
+        String token = seckillUserService.login(response, loginVo);
+        return Result.success(token);
+    }
+
 }

@@ -36,6 +36,7 @@ public class SeckillController {
      * 用户点击秒杀按钮后的逻辑控制
      * <p>
      * c6: 使用MQ优化
+     * QPS 93.6 优化之前
      *
      * @param model   页面model，用于存储带给页面的变量
      * @param user    秒杀用户

@@ -31,16 +31,51 @@ public class SeckillUserService {
     @Autowired
     private RedisService redisService;
 
+    /* 没有用缓存
     public SeckillUser getById(Long id){
         return seckillUserDao.getById(id);
     }
+     */
 
+    /**
+     * 根据id查询秒杀用户信息
+     * <p>
+     * c5: 对象级缓存
+     * 从缓存中查询SeckillUser对象，如果SeckillUser在缓存中存在，则直接返回，否则从数据库返回
+     *
+     * @param id
+     * @return
+     */
+    public SeckillUser getById(Long id){
+
+        //1.从redis中获取用户缓存
+        SeckillUser user = redisService.get(SeckillUserKeyPrefix.getSeckillUserById,"" + id,SeckillUser.class);
+        if(user != null){
+            return user;
+        }
+        //2.如果缓存中没有用户数据，则将数据写入缓存
+        //先从数据库中取得数据
+        user = seckillUserDao.getById(id);
+        // 然后将数据返回并将数据缓存在redis中
+        if(user != null){
+            redisService.set(SeckillUserKeyPrefix.getSeckillUserById,"" + id,user);
+        }
+        return user;
+    }
+
+    /**
+     * 根据token从redis中取出 SeckillUser 对象
+     *
+     * @param response 在获取 SeckillUser 的同时，需要将新的cookie设置到 response 对象中
+     * @param token    用于在redis中获取SeckillUser对象的key
+     * @return
+     */
     public SeckillUser getByToken(HttpServletResponse response,String token){
         if(StringUtils.isEmpty(token)){
             return null;
         }
         SeckillUser user = redisService.get(SeckillUserKeyPrefix.token,token,SeckillUser.class);
-        //延长有限期
+        //在有效期内从redis获取到key之后，需要将key重新设置一下，从而达到延长有效期的效果
         if(user != null){
             addCookie(response, token, user);
         }
@@ -56,7 +91,7 @@ public class SeckillUserService {
      * @return 登录成功与否
      */
 
-    public Result<Boolean> login(HttpServletResponse response,LoginVo loginVo){
+    public String login(HttpServletResponse response,LoginVo loginVo){
         if(loginVo == null){
             throw new GlobalException(CodeMsg.SERVER_ERROR);
         }
@@ -82,9 +117,16 @@ public class SeckillUserService {
         String token = UUIDUtil.uuid();
         addCookie(response,token,seckillUser);
 
-        return Result.success(true);
+        return token;
     }
 
+    /**
+     * 将cookie存入redis，并将cookie写入到请求的响应中
+     *
+     * @param response
+     * @param token
+     * @param user
+     */
     private void addCookie(HttpServletResponse response, String token, SeckillUser user) {
         // 每次访问都会生成一个新的session存储于redis和反馈给客户端，
         // 一个session对应存储一个seckillUser对象
@@ -96,5 +138,38 @@ public class SeckillUserService {
         cookie.setMaxAge(SeckillUserKeyPrefix.token.expireSeconds());
         cookie.setPath("/");
         response.addCookie(cookie);
+    }
+
+    /**
+     * c5: 更新密码
+     * 1. 从数据库中查询用户是否存在，如果存在则继续，不存在这抛出用户不存在错误
+     * 2. 如果用户存在，则调用dao层更新用户的密码字段
+     * 3. 数据库中的数据更新后，redis中的数据也需要更新，保持数据的一致性
+     *
+     * @param token           存储在redis中的用户token
+     * @param id              待更新用户的id
+     * @param passwordNew 从表单中接收的更新密码
+     * @return 更新成功与否
+     */
+    public boolean updatePassword(String token,long id,String passwordNew){
+        //1.从缓存或者数据库中取得对应的用户数据
+        SeckillUser user = this.getById(id);//这一步也有可能是从缓存中读取数据
+        if(user != null){
+            //用户不存在
+            throw new GlobalException(CodeMsg.MOBILE_NOT_EXIST);
+        }
+        //2.如果用户存在，更新数据
+        //更新数据库中的数据
+        SeckillUser updateUser = new SeckillUser();
+        updateUser.setId(id);
+        updateUser.setPassword(MD5Util.fromPassToDBPass(passwordNew,user.getSalt()));
+        seckillUserDao.updatePassword(updateUser);
+
+        //更新缓存中的数据（先删除，在添加）
+        //如果不删除，以前得用户数据任然在缓存中，则通过以前得token依然可以访问到用户之前的数据，会造成数据泄露。
+        redisService.delete(SeckillUserKeyPrefix.getSeckillUserById,"" + id);
+        user.setPassword(updateUser.getPassword());
+        redisService.set(SeckillUserKeyPrefix.token,token,user);// 为新的用户数据重新生成缓存
+        return true;
     }
 }
