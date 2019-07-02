@@ -7,12 +7,15 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.thymeleaf.context.WebContext;
+import org.thymeleaf.spring4.context.SpringWebContext;
 import org.thymeleaf.spring4.view.ThymeleafViewResolver;
 import seckill.demo.domain.SeckillUser;
 import seckill.demo.redis.GoodsKeyPrefix;
 import seckill.demo.redis.RedisService;
+import seckill.demo.result.Result;
 import seckill.demo.service.GoodsService;
 import seckill.demo.service.SeckillUserService;
+import seckill.demo.vo.GoodsDetailVo;
 import seckill.demo.vo.GoodsVo;
 
 import javax.servlet.http.HttpServletRequest;
@@ -33,6 +36,7 @@ public class GoodController {
     @Autowired
     private ApplicationContext applicationContext;
 
+
     /*
     @RequestMapping("/to_list")
     public String list(Model model,SeckillUser user) {
@@ -41,7 +45,8 @@ public class GoodController {
         List<GoodsVo> goodsList = goodsService.listGoodsVo();
         model.addAttribute("goodsList",goodsList);
         return "goods_list";
-    }*/
+    }
+    */
 
     /**
      * 从数据库中获取商品信息（包含秒杀信息）
@@ -73,8 +78,8 @@ public class GoodController {
         model.addAttribute("goodsList",goodsList);
         // 3. 渲染html
         //包含业务数据的context。
-        WebContext webContext = new WebContext(request,response,request.getServletContext()
-        ,request.getLocale(),model.asMap());
+        SpringWebContext webContext = new SpringWebContext(request,response,request.getServletContext()
+        ,request.getLocale(),model.asMap(),applicationContext);
 
         html = thymeleafViewResolver.getTemplateEngine().process("goods_list",webContext);
 
@@ -137,6 +142,7 @@ public class GoodController {
      * @param goodsId   商品id
      * @return   商品详情页
      */
+
    @RequestMapping(value = "/to_detail/{goodsId}",produces = "text/html")// 注意这种写法
    @ResponseBody
    public String detail(Model model, SeckillUser user,
@@ -181,8 +187,8 @@ public class GoodController {
        model.addAttribute("seckillStatus", seckillStatus);
        model.addAttribute("remainSeconds", remainSeconds);
 
-       WebContext webContext = new WebContext(request,response,request.getServletContext(),
-               response.getLocale(),model.asMap());
+       SpringWebContext webContext = new SpringWebContext(request,response,request.getServletContext(),
+               response.getLocale(),model.asMap(),applicationContext);
 
        html = thymeleafViewResolver.getTemplateEngine().process("goods_detail",webContext);
 
@@ -191,6 +197,60 @@ public class GoodController {
        }
        return html;
    }
+
+
+/**
+ *处理商品详情页（页面静态化处理,直接将数据返回给客户端，交给客户端处理）
+ *
+ * <p>
+ *c5: URL级缓存实现；从redis中取商品详情页面，如果没有则需要手动渲染页面，
+ *    并且将渲染的页面存储在redis中供下一次访问时获取。
+ *    实际上URL级缓存和页面级缓存是一样的，只不过URL级缓存会根据url的参数从redis中取不同的数据
+ *
+ * @param user   用户信息
+ * @param goodsId   商品id
+ * @return   商品详情页
+ */
+    @RequestMapping(value = "/to_detail_static/{goodsId}")// 注意这种写法
+    @ResponseBody
+    public Result<GoodsDetailVo> toDetailStatic(SeckillUser user,
+                                        @PathVariable("goodsId")long goodsId) {
+
+        //1.通过商品id在数据库中查询
+
+        GoodsVo goods = goodsService.getGoodsVoByGoodsId(goodsId);
+
+        //2.获取商品的秒杀开始时间和结束时间
+        long startDate = goods.getStartDate().getTime();
+        long endDate = goods.getEndDate().getTime();
+        long now = System.currentTimeMillis();
+
+        //秒杀状态，0：秒杀未开始 1：秒杀进行中 2：秒杀结束
+        int seckillStatus = 0;
+        //秒杀剩余时间
+        int remainSeconds = 0;
+
+        if(now < startDate){
+            seckillStatus = 0;
+            remainSeconds = (int)((startDate - now)/1000);
+        }else if(now > endDate){
+            seckillStatus = 2;
+            remainSeconds = -1;
+        }else {
+            seckillStatus = 1;
+            remainSeconds = 0;
+        }
+
+        // 服务端封装商品数据直接传递给客户端，而不用渲染页面
+        GoodsDetailVo goodsDetailVo = new GoodsDetailVo();
+        goodsDetailVo.setGoods(goods);
+        goodsDetailVo.setUser(user);
+        goodsDetailVo.setRemainSeconds(remainSeconds);
+        goodsDetailVo.setSeckillStatus(seckillStatus);
+
+        return Result.success(goodsDetailVo);
+    }
+
 
 
 }

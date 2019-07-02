@@ -4,12 +4,12 @@ package seckill.demo.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import seckill.demo.domain.OrderInfo;
 import seckill.demo.domain.SeckillOrder;
 import seckill.demo.domain.SeckillUser;
 import seckill.demo.result.CodeMsg;
+import seckill.demo.result.Result;
 import seckill.demo.service.GoodsService;
 import seckill.demo.service.OrderService;
 import seckill.demo.service.SeckillService;
@@ -73,5 +73,68 @@ public class SeckillController {
         model.addAttribute("orderInfo",orderInfo);
         model.addAttribute("goods",goodsVo);
         return "order_detail";
+    }
+
+    /**
+     * c5: 秒杀逻辑（页面静态化分离，不需要直接将页面返回给客户端，而是返回客户端需要的页面动态数据，返回数据时json格式）
+     * <p>
+     * <p>
+     * GET/POST的@RequestMapping是有区别的
+     * <p>
+     * c6： 通过随机的path，客户端隐藏秒杀接口
+     *
+     * @param model
+     * @param user
+     * @param goodsId
+     * @param path    隐藏的秒杀地址，为客户端回传的path，最初也是有服务端产生的
+     * @return 订单详情或错误码
+     */
+    // {path}为客户端回传的path，最初也是有服务端产生的
+    @RequestMapping(value = "/{path}/do_miaosha_static", method = RequestMethod.POST)
+    @ResponseBody
+    public Result<Integer> doMiaoshaStatic(Model model, SeckillUser user,
+                                           @RequestParam("goodsId") long goodsId,
+                                           @PathVariable("path") String path){
+        model.addAttribute("user",user);
+        //1.如果用户为空，则返回登陆界面
+        if(user == null){
+            return Result.error(CodeMsg.SESSION_ERROR);
+        }
+
+        return Result.success(0);
+
+    }
+
+    /**
+     * */
+    /**
+     *  GET POST有什么区别？
+     * */
+    @RequestMapping(value="/do_miaosha", method=RequestMethod.POST)
+    @ResponseBody
+    public Result<OrderInfo> miaosha(Model model,SeckillUser user,
+                                     @RequestParam("goodsId")long goodsId) {
+        model.addAttribute("user",user);
+        //1.如果用户为空，则返回登陆界面
+        if(user == null){
+            return Result.error(CodeMsg.SESSION_ERROR);
+        }
+
+        //判断库存
+        GoodsVo goods = goodsService.getGoodsVoByGoodsId(goodsId);
+        int stock = goods.getStockCount();
+        if(stock <= 0){
+            return Result.error(CodeMsg.SECKILL_OVER);
+        }
+
+        //判断是否已经秒杀到了
+        SeckillOrder order = orderService.getSeckillOrderByUserIdAndGoodsId(user.getId(),goodsId);
+        if(order != null){
+            return Result.error(CodeMsg.REPEATE_SECKILL);
+        }
+
+        //减库存，下订单，写入秒杀订单
+        OrderInfo orderInfo = seckillService.seckill(user,goods);
+        return Result.success(orderInfo);
     }
 }

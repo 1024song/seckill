@@ -40,4 +40,13 @@ public interface OrderDao {
      */
     @Insert("INSERT INTO seckill_order(user_id, order_id, goods_id) VALUES (#{userId}, #{orderId}, #{goodsId})")
     void insertSeckillOrder(SeckillOrder seckillOrder);
+
+    /**
+     * 获取订单信息
+     *
+     * @param orderId
+     * @return
+     */
+    @Select("select * from order_info where id = #{orderId}")
+    OrderInfo getOrderById(@Param("orderId") long orderId);
 }
