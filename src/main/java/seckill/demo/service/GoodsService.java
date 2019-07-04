@@ -47,5 +47,14 @@ public class GoodsService {
         return ret > 0;
     }
 
+    public void resetStock(List<GoodsVo> goodsVoList){
+        for(GoodsVo goodsVo : goodsVoList){
+            SeckillGoods g = new SeckillGoods();
+            g.setGoodsId(goodsVo.getId());
+            g.setStockCount(goodsVo.getStockCount());
+            goodsDao.resetStock(g);
+        }
+    }
+
 
 }

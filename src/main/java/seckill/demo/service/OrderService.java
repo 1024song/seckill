@@ -68,10 +68,10 @@ public class OrderService {
         orderInfo.setUserId(user.getId());
 
         // 将订单信息插入order_info表中
-        long orderId = orderDao.insert(orderInfo);
+        orderDao.insert(orderInfo);
         SeckillOrder seckillOrder = new SeckillOrder();
         seckillOrder.setGoodsId(goods.getId());
-        seckillOrder.setOrderId(orderId);
+        seckillOrder.setOrderId(orderInfo.getId());
         seckillOrder.setUserId(user.getId());
 
         // 将秒杀订单插入seckill_order表中
@@ -92,5 +92,10 @@ public class OrderService {
      */
     public OrderInfo getOrderById(long orderId){
         return orderDao.getOrderById(orderId);
+    }
+
+    public void deleteOrders(){
+        orderDao.deleteOrders();
+        orderDao.deleteSeckillOrders();
     }
 }
